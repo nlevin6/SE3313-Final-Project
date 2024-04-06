@@ -31,6 +31,7 @@ void HandleClient(Socket client) {
             // Message when client leaves server
             if (bytesRead <= 0) {
                 std::cout << "Player " << playerId << " disconnected" << std::endl;
+                --playerCount;
                 break;
             }
 
@@ -63,7 +64,7 @@ void ReadServerInput(SocketServer& server) {
 
 int main() {
     try {
-        SocketServer server(3000);
+        SocketServer server(3001);
         std::cout << "Server started. Waiting for players..." << std::endl;
 
         // Start a thread to continuously read input from server terminal
