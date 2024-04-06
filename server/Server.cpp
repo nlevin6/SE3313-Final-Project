@@ -10,25 +10,35 @@ using namespace Sync;
 std::atomic<bool> terminateServer(false);// Global atomic flag to control server termination
 std::vector<std::thread> clientThreads;// Vector to store client threads
 
-void HandleClient(Socket client) {
+void HandleClients(Socket* client1, Socket* client2) {
     try {
         // As logn as server is running, read data
         while (!terminateServer) {
-            ByteArray data;
-            int bytesRead = client.Read(data);
+            ByteArray player1, player2;
+            int bytesReadP1 = client1 -> Read(player1);
+            int bytesReadP2 = client2 -> Read(player2);
+
 
             // Message when client leaves server
-            if (bytesRead <= 0) {
-                std::cout << "Client disconnected" << std::endl;
+            if (bytesReadP1 <= 0 && bytesReadP2 <= 0) {
+                std::cout << "Both players left the game" << std::endl;
+                break;
+            } else if (bytesReadP1 <= 0 || bytesReadP2 <= 0) {
+                std::cout << "A player left the game" << std::endl;
                 break;
             }
 
             // Convert received message to upper case
-            std::transform(data.v.begin(), data.v.end(), data.v.begin(), ::toupper);
+            // Both players recieve same message from the server
+            std::transform(player1.v.begin(), player1.v.end(), player1.v.begin(), ::toupper);
+            std::transform(player2.v.begin(), player2.v.end(), player2.v.begin(), ::toupper);
 
             // Send back the transformed data
-            std::cout << "Transformed message: " << data.ToString() << std::endl;
-            client.Write(data);
+            std::cout << "Transformed message player1: " << player1.ToString() << std::endl;
+            client1 -> Write(player1);
+
+            std::cout << "Transformed message player2: " << player2.ToString() << std::endl;
+            client2 -> Write(player2);
         }
     } catch (const std::string &error) {
         std::cerr << "Error: " << error << std::endl;
@@ -58,12 +68,14 @@ int main() {
         // Start a thread to continuously read input from server terminal
         std::thread inputThread(ReadServerInput, std::ref(server));
 
-        while (!terminateServer) {
-            Socket client = server.Accept();
-            std::cout << "Client connected" << std::endl;
+        while (!terminateServer) { //where new clients join a thread
+            Socket client1 = server.Accept();
+            std::cout << "Player 1 Joined" << std::endl;
+            Socket client2 = server.Accept();
+            std::cout << "Player 2 Joined" << std::endl;
 
-            // Create a thread to handle the client connection
-            std::thread clientThread(HandleClient, std::move(client));
+            // Create a thread to handle both client connections
+            std::thread clientThread(HandleClients, &client1, &client2);
             clientThreads.push_back(std::move(clientThread));
         }
 
