@@ -7,7 +7,7 @@ using namespace Sync;
 int main() {
     try {
         std::cout << "I am a client" << std::endl;
-        Socket client("127.0.0.1", 3001);
+        Socket client("127.0.0.1", 3000);
 		client.Open();
 
         while (true) {
