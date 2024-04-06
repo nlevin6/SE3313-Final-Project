@@ -4,22 +4,67 @@
 #include <thread>
 #include <vector>
 #include <atomic>
+#include <mutex>
+#include <unordered_map> // Add this for unordered_map
 
 using namespace Sync;
 
 std::atomic<bool> terminateServer(false); // Global atomic flag to control server termination
 std::vector<std::thread> clientThreads;   // Vector to store client threads
 std::atomic<int> playerCount(0);          // Global atomic variable to track player count
+std::vector<Socket> connectedClients;     // Vector to store connected clients
+std::mutex clientMutex;                   // Mutex to protect access to connectedClients vector
+std::unordered_map<int, int> messageCount; // Map to store message count for each player
+
+void BroadcastToAll(const ByteArray& data, int playerId) {
+    std::lock_guard<std::mutex> lock(clientMutex);
+    for (auto& client : connectedClients) {
+        try {
+            client.Write(data);
+        } catch (const std::string& error) {
+            std::cerr << "Error sending data to client: " << error << std::endl;
+        }
+    }
+    std::cout << "Broadcasted message from Player " << playerId << ": " << data.ToString() << std::endl;
+}
+
+void SendDataToPlayer(const ByteArray& data, int playerId) {
+    std::lock_guard<std::mutex> lock(clientMutex);
+    for (size_t i = 0; i < connectedClients.size(); ++i) {
+        if (i + 1 == static_cast<size_t>(playerId)) {
+            Socket& client = connectedClients[i];
+           
+            try {
+                
+                client.Write(data);
+                std::cout << "Sent data to Player " << playerId << ": " << data.ToString() << std::endl;
+                return; // Exit the loop once data is sent to the player
+            } catch (const std::string& error) {
+                std::cerr << "Error sending data to client: " << error << std::endl;
+                return; // Exit the loop if there's an error sending data
+            }
+        }
+    }
+    // If the loop completes without finding the player ID, print an error message
+    std::cerr << "Player " << playerId << " not found." << std::endl;
+}
+
 
 void HandleClient(Socket client) {
 
-    if(playerCount >= 2){
+    if (playerCount >= 2) {
         std::cout << "Lobby has reached maximum amount of players" << std::endl;
         return;
     }
 
-    int playerId = ++playerCount; // Increment player count and assign playerId
-    
+    int playerId;
+    {
+        std::lock_guard<std::mutex> lock(clientMutex);
+        playerId = ++playerCount; // Increment player count and assign playerId
+        connectedClients.push_back(client); // Add client to the list of connected clients
+        messageCount[playerId] == 0; // Initialize message count for the player
+    }
+
     try {
         std::cout << "Player " << playerId << " connected" << std::endl;
         
@@ -35,15 +80,41 @@ void HandleClient(Socket client) {
                 break;
             }
 
+            //messeage sent
+              ++messageCount[playerId];
+
             // Convert received message to upper case
             std::transform(data.v.begin(), data.v.end(), data.v.begin(), ::toupper);
 
-            // Send back the transformed data
-            std::cout << "Transformed message from Player " << playerId << ": " << data.ToString() << std::endl;
-            client.Write(data);
+            // Broadcast the transformed data to all clients
+            if (messageCount[1]+messageCount[2] == 2) {
+                //TODO: add game logic
+                SendDataToPlayer(data,playerId);
+            
+                //TODO: add the winner data to this data 
+                // BroadcastToAll(data, playerId);
+                
+                messageCount[playerId] = 0; // Fixed assignment operator
+            }
+            else{ 
+               
+                SendDataToPlayer(data,playerId);
+                std::cerr << "Error sending data to client: "<< playerId << std::endl;
+
+            }
+
         }
     } catch (const std::string &error) {
         std::cerr << "Error: " << error << std::endl;
+    }
+
+    // Remove the client from the list of connected clients
+    {
+        std::lock_guard<std::mutex> lock(clientMutex);
+        auto it = std::find(connectedClients.begin(), connectedClients.end(), client);
+        if (it != connectedClients.end()) {
+            connectedClients.erase(it);
+        }
     }
 }
 
@@ -64,7 +135,7 @@ void ReadServerInput(SocketServer& server) {
 
 int main() {
     try {
-        SocketServer server(3001);
+        SocketServer server(3000);
         std::cout << "Server started. Waiting for players..." << std::endl;
 
         // Start a thread to continuously read input from server terminal
