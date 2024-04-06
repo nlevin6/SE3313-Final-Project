@@ -7,19 +7,23 @@
 
 using namespace Sync;
 
-std::atomic<bool> terminateServer(false);// Global atomic flag to control server termination
-std::vector<std::thread> clientThreads;// Vector to store client threads
+std::atomic<bool> terminateServer(false); // Global atomic flag to control server termination
+std::vector<std::thread> clientThreads;   // Vector to store client threads
+std::atomic<int> playerCount(0);          // Global atomic variable to track player count
 
 void HandleClient(Socket client) {
+    int playerId = ++playerCount; // Increment player count and assign playerId
     try {
-        // As logn as server is running, read data
+        std::cout << "Player " << playerId << " connected" << std::endl;
+        
+        // As long as server is running, read data
         while (!terminateServer) {
             ByteArray data;
             int bytesRead = client.Read(data);
 
             // Message when client leaves server
             if (bytesRead <= 0) {
-                std::cout << "Client disconnected" << std::endl;
+                std::cout << "Player " << playerId << " disconnected" << std::endl;
                 break;
             }
 
@@ -27,7 +31,7 @@ void HandleClient(Socket client) {
             std::transform(data.v.begin(), data.v.end(), data.v.begin(), ::toupper);
 
             // Send back the transformed data
-            std::cout << "Transformed message: " << data.ToString() << std::endl;
+            std::cout << "Transformed message from Player " << playerId << ": " << data.ToString() << std::endl;
             client.Write(data);
         }
     } catch (const std::string &error) {
@@ -53,25 +57,15 @@ void ReadServerInput(SocketServer& server) {
 int main() {
     try {
         SocketServer server(3002);
-        std::cout << "I am a server" << std::endl;
+        std::cout << "Server started. Waiting for players..." << std::endl;
 
         // Start a thread to continuously read input from server terminal
         std::thread inputThread(ReadServerInput, std::ref(server));
 
         while (!terminateServer) {
             Socket client = server.Accept();
-            std::cout << "Client connected" << std::endl;
-
-            // Create a thread to handle the client connection
             std::thread clientThread(HandleClient, std::move(client));
-            clientThreads.push_back(std::move(clientThread));
-        }
-
-        // Wait for all client threads to finish
-        for (auto& thread : clientThreads) {
-            if (thread.joinable()) {
-                thread.join();
-            }
+            clientThread.detach(); // Detach client thread to let it run independently
         }
 
         // Wait for the input thread to finish
