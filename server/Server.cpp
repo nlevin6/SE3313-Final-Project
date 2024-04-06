@@ -12,7 +12,14 @@ std::vector<std::thread> clientThreads;   // Vector to store client threads
 std::atomic<int> playerCount(0);          // Global atomic variable to track player count
 
 void HandleClient(Socket client) {
+
+    if(playerCount >= 2){
+        std::cout << "Lobby has reached maximum amount of players" << std::endl;
+        return;
+    }
+
     int playerId = ++playerCount; // Increment player count and assign playerId
+    
     try {
         std::cout << "Player " << playerId << " connected" << std::endl;
         
@@ -56,7 +63,7 @@ void ReadServerInput(SocketServer& server) {
 
 int main() {
     try {
-        SocketServer server(3002);
+        SocketServer server(3000);
         std::cout << "Server started. Waiting for players..." << std::endl;
 
         // Start a thread to continuously read input from server terminal
