@@ -15,6 +15,8 @@ std::atomic<int> playerCount(0);          // Global atomic variable to track pla
 std::vector<Socket> connectedClients;     // Vector to store connected clients
 std::mutex clientMutex;                   // Mutex to protect access to connectedClients vector
 std::unordered_map<int, int> messageCount; // Map to store message count for each player
+std::unordered_map<int, std::string> playerChoices; // Store player choices
+
 
 void BroadcastToAll(const ByteArray& data, int playerId) {
     std::lock_guard<std::mutex> lock(clientMutex);
@@ -26,6 +28,20 @@ void BroadcastToAll(const ByteArray& data, int playerId) {
         }
     }
     std::cout << "Broadcasted message from Player " << playerId << ": " << data.ToString() << std::endl;
+}
+
+std::string DetermineWinner() {
+    std::string choice1 = playerChoices[1];
+    std::string choice2 = playerChoices[2];
+    if (choice1 == choice2) {
+        return "Draw";
+    } else if ((choice1 == "rock" && choice2 == "scissors") || 
+               (choice1 == "scissors" && choice2 == "paper") || 
+               (choice1 == "paper" && choice2 == "rock")) {
+        return "Player 1 wins!";
+    } else {
+        return "Player 2 wins!";
+    }
 }
 
 void SendDataToPlayer(const ByteArray& data, int playerId) {
@@ -82,31 +98,66 @@ void HandleClient(Socket client) {
 
             //messeage sent
               ++messageCount[playerId];
+            std::string choice(data.v.begin(), data.v.end());
+            if(choice != "rock" && choice != "paper" && choice != "scissors" && choice != "done") {
+                std::cerr << "Invalid choice from Player " << playerId << std::endl;
+                continue; // Skip to the next iteration if the choice is invalid
+            }
 
-            // Convert received message to upper case
-            std::transform(data.v.begin(), data.v.end(), data.v.begin(), ::toupper);
+            if(choice == "done") {
+                std::cout << "Player " << playerId << " has left the game." << std::endl;
+                --playerCount;
+                break; // Exit if player wants to leave
+            }
 
-            // Broadcast the transformed data to all clients
-            if (messageCount[1]+messageCount[2] == 2) {
-                //TODO: add game logic
-                SendDataToPlayer(data,playerId);
-            
-                //TODO: add the winner data to this data 
-                // BroadcastToAll(data, playerId);
+            {
+                std::lock_guard<std::mutex> lock(clientMutex);
+                playerChoices[playerId] = choice; // Store player choice
+            }
+
+            // Check if both players have made their choices
+            if (playerChoices.size() == 2) {
+                std::string result = DetermineWinner();
+                ByteArray resultData;
+                resultData.v.assign(result.begin(), result.end());
                 
-                messageCount[playerId] = 0; // Fixed assignment operator
+                BroadcastToAll(resultData, playerId); // Send result to both players
+                playerChoices.clear(); // Clear choices for next round
+            } else {
+                // Notify waiting for other player
+                std::string waitMsg = "Waiting for the other player...";
+                ByteArray waitData;
+                waitData.v.assign(waitMsg.begin(), waitMsg.end());
+                SendDataToPlayer(waitData, playerId);
             }
-            else{ 
-               
-                SendDataToPlayer(data,playerId);
-                std::cerr << "Error sending data to client: "<< playerId << std::endl;
-
-            }
-
         }
     } catch (const std::string &error) {
         std::cerr << "Error: " << error << std::endl;
     }
+            // Convert received message to upper case
+    //         std::transform(data.v.begin(), data.v.end(), data.v.begin(), ::toupper);
+
+    //         // Broadcast the transformed data to all clients
+    //         if (messageCount[1]+messageCount[2] == 2) {
+    //             //TODO: add game logic
+    //             SendDataToPlayer(data,playerId);
+            
+    //             //TODO: add the winner data to this data 
+    //             // BroadcastToAll(data, playerId);
+                
+    //             messageCount[playerId] = 0; // Fixed assignment operator
+    //         }
+    //         else{ 
+               
+    //             SendDataToPlayer(data,playerId);
+    //             std::cerr << "Error sending data to client: "<< playerId << std::endl;
+
+    //         }
+
+    //     }
+    // } catch (const std::string &error) {
+    //     std::cerr << "Error: " << error << std::endl;
+    // }
 
     // Remove the client from the list of connected clients
     {
