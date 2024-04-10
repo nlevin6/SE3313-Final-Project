@@ -25,18 +25,26 @@ private:
         while (running) {
             ByteArray data;
             int bytesRead = playerSocket.Read(data);
+            std::string choice(data.v.begin(), data.v.end());
 
-            // Handle disconnection
-            if (bytesRead <= 0) {
-                // Properly manage disconnection...
-                BroadcastMessage("Player " + std::to_string(playerId) + " disconnected.");
+            if (choice == "done") {
+                RemovePlayer(playerId);
+                if (NoPlayersLeft()) {
+                    std::cout << "Lobby closed. No players left" << std::endl;
+                    running = false;
+                    if (lobbyThread.joinable()) {
+                        lobbyThread.join();
+                    }
+                }
                 return; // Exit this player's thread
             }
 
-            std::string choice(data.v.begin(), data.v.end());
+            
+
             ProcessPlayerChoice(playerId, choice);
         }
     }
+
     
     void CheckAllPlayersChoices() {
         if (playerChoices.size() == players.size()) {
@@ -51,13 +59,19 @@ private:
         return choice == "rock" || choice == "paper" || choice == "scissors";
     }
 
+    bool NoPlayersLeft() const {
+        return players.empty();
+    }
+
     void RemovePlayer(int playerId) {
         std::lock_guard<std::mutex> lock(playersMutex);
         if (playerId - 1 < players.size()) {
             players.erase(players.begin() + (playerId - 1));
+            std::cout << "Player " + std::to_string(playerId) + " has left the lobby." << std::endl;
+            BroadcastMessage("Player " + std::to_string(playerId) + " has left the lobby.");
+            
         }
         playerChoices.erase(playerId);
-        BroadcastMessage("Player " + std::to_string(playerId) + " has left the lobby.");
     }
 
     void ProcessPlayerChoice(int playerId, const std::string& choice) {
@@ -155,9 +169,6 @@ public:
         return false;
     }
 }
-
-
-
 
     // Get the current player count
     size_t PlayerCount() const
