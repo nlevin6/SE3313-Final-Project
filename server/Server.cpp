@@ -267,7 +267,7 @@ void HandleClient(Socket client)
     std::string choice(data.v.begin(), data.v.end());
 
     Lobby *allocatedLobby = nullptr;
-    std::lock_guard<std::mutex> lock(lobbiesMutex);
+    std::unique_lock<std::mutex> lock(lobbiesMutex); 
 
     if (choice == "create")
     {
@@ -285,6 +285,7 @@ void HandleClient(Socket client)
 
         if (it != lobbies.end())
         {
+
             allocatedLobby = &(it->second);
             std::cout << "Joining existing lobby with ID " << it->first << std::endl;
         }
@@ -292,11 +293,6 @@ void HandleClient(Socket client)
         {
             // Handle case where no available lobby exists
             std::cout << "No available lobby to join. Please try creating a new one." << std::endl;
-            return;
-        }
-
-        if (!allocatedLobby)
-        {
         }
     }
 
@@ -309,122 +305,12 @@ void HandleClient(Socket client)
         // Send error to the client
     }
 
+    lock.unlock();
+
 
     // Below this is the old handle client, before the Lobby
     // These would normally be handled inside Lobby's while loop per Lobby instance
 
-    if (playerCount >= 2)
-    {
-        std::cout << "Lobby has reached maximum amount of players" << std::endl;
-        return;
-    }
-
-    int playerId;
-    {
-        std::lock_guard<std::mutex> lock(clientMutex);
-        playerId = ++playerCount;           // Increment player count and assign playerId
-        connectedClients.push_back(client); // Add client to the list of connected clients
-        messageCount[playerId] == 0;        // Initialize message count for the player
-    }
-
-    try
-    {
-        std::cout << "Player " << playerId << " connected" << std::endl;
-
-        // As long as server is running, read data
-        while (!terminateServer)
-        {
-            /*
-            ByteArray data;
-            int bytesRead = client.Read(data);
-
-            // Message when client leaves server
-            if (bytesRead <= 0)
-            {
-                std::cout << "Player " << playerId << " disconnected" << std::endl;
-                --playerCount;
-                break;
-            }
-
-            // messeage sent
-            ++messageCount[playerId];
-            std::string choice(data.v.begin(), data.v.end());
-            if (choice != "rock" && choice != "paper" && choice != "scissors" && choice != "done")
-            {
-                std::cerr << "Invalid choice from Player " << playerId << std::endl;
-                continue; // Skip to the next iteration if the choice is invalid
-            }
-
-            if (choice == "done")
-            {
-                std::cout << "Player " << playerId << " has left the game." << std::endl;
-                --playerCount;
-                break; // Exit if player wants to leave
-            }
-
-            {
-                std::lock_guard<std::mutex> lock(clientMutex);
-                playerChoices[playerId] = choice; // Store player choice
-            }
-
-            // Check if both players have made their choices
-            if (playerChoices.size() == 2)
-            {
-                std::string result = DetermineWinner();
-                ByteArray resultData;
-                resultData.v.assign(result.begin(), result.end());
-
-                BroadcastToAll(resultData, playerId); // Send result to both players
-                playerChoices.clear();                // Clear choices for next round
-            }
-            else
-            {
-                // Notify waiting for other player
-                std::string waitMsg = "Waiting for the other player...";
-                ByteArray waitData;
-                waitData.v.assign(waitMsg.begin(), waitMsg.end());
-                SendDataToPlayer(waitData, playerId);
-            }*/
-        }
-    }
-    catch (const std::string &error)
-    {
-        std::cerr << "Error: " << error << std::endl;
-    }
-    // Convert received message to upper case
-    //         std::transform(data.v.begin(), data.v.end(), data.v.begin(), ::toupper);
-
-    //         // Broadcast the transformed data to all clients
-    //         if (messageCount[1]+messageCount[2] == 2) {
-    //             //TODO: add game logic
-    //             SendDataToPlayer(data,playerId);
-
-    //             //TODO: add the winner data to this data
-    //             // BroadcastToAll(data, playerId);
-
-    //             messageCount[playerId] = 0; // Fixed assignment operator
-    //         }
-    //         else{
-
-    //             SendDataToPlayer(data,playerId);
-    //             std::cerr << "Error sending data to client: "<< playerId << std::endl;
-
-    //         }
-
-    //     }
-    // } catch (const std::string &error) {
-    //     std::cerr << "Error: " << error << std::endl;
-    // }
-
-    // Remove the client from the list of connected clients
-    {
-        std::lock_guard<std::mutex> lock(clientMutex);
-        auto it = std::find(connectedClients.begin(), connectedClients.end(), client);
-        if (it != connectedClients.end())
-        {
-            connectedClients.erase(it);
-        }
-    }
 }
 
 // Continuously read input from server terminal

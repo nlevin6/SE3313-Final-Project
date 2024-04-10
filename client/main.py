@@ -19,15 +19,6 @@ def main():
         create_or_join = input("Do you want to create a new game or join an existing one? (create/join): ").lower()
         client_socket.send(create_or_join.encode())
 
-        if create_or_join == "join":
-            # If joining a game, receive and display the list of running games
-            running_games = client_socket.recv(1024).decode()
-            print("Current running games:")
-            print(running_games)
-            # Let the player choose which game to join
-            selected_game = input("Enter the ID of the game you want to join: ")
-            client_socket.send(selected_game.encode())
-
         while True:
             if not waiting_for_result:  
                 user_input = input("Enter rock, paper, scissors to play or 'done' to exit: ").lower()
