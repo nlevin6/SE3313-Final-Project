@@ -131,17 +131,33 @@ public:
     }
 
     // Add a player to the lobby
-    bool AddPlayer(Socket player)
-    {
-        std::lock_guard<std::mutex> lock(playersMutex);
-        if (players.size() < 2)
-        {   
-            players.push_back(std::move(player));
-            BroadcastMessage("A new player has joined the lobby.");
-            return true;
+    bool AddPlayer(Socket player) {
+    std::lock_guard<std::mutex> lock(playersMutex);
+    if (players.size() < 2) {
+        std::cout << "Adding a new player to the lobby." << std::endl;
+        players.push_back(std::move(player));
+        std::cout << "Attempting to broadcast message..." << std::endl;
+
+        // Create a ByteArray from the string literal
+        Sync::ByteArray message("Welcome to the lobby!\n");
+
+        for (auto& player : players) {
+            std::cout << "Broadcasting to one player..." << std::endl; // Check if this gets printed
+            try {
+                player.Write(message); // Use the ByteArray object
+            } catch (const std::string& error) {
+                std::cerr << "Could not broadcast message to client: " << error << std::endl;
+            }
         }
+        return true;
+    } else {
+        std::cerr << "Lobby is full. Cannot add more players." << std::endl;
         return false;
     }
+}
+
+
+
 
     // Get the current player count
     size_t PlayerCount() const
