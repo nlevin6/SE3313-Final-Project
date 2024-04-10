@@ -257,19 +257,13 @@ void SendDataToPlayer(const ByteArray &data, int playerId)
     std::cerr << "Player " << playerId << " not found." << std::endl;
 }
 
-std::string GetRunningGamesList() {
-    std::string running_games;
-    std::lock_guard<std::mutex> lock(lobbiesMutex);
-    for (const auto& pair : lobbies) {
-        running_games += "ID: " + std::to_string(pair.first) + ", Players: " + std::to_string(pair.second.PlayerCount()) + "\n";
-    }
-    return running_games;
-}
-
 void HandleClient(Socket client)
 {
+
     ByteArray data;
+
     client.Read(data);
+
     std::string choice(data.v.begin(), data.v.end());
 
     Lobby *allocatedLobby = nullptr;
@@ -282,7 +276,7 @@ void HandleClient(Socket client)
         allocatedLobby = &lobby;
         std::cout << "New Lobby created with ID " << newLobbyId << std::endl;
     }
-    if (choice == "join")
+    else if (choice == "join")
     {
         // Attempt to find a lobby with space for more players
         auto it = std::find_if(lobbies.begin(), lobbies.end(), [](const std::pair<const int, Lobby> &pair){ 
@@ -293,10 +287,6 @@ void HandleClient(Socket client)
         {
             allocatedLobby = &(it->second);
             std::cout << "Joining existing lobby with ID " << it->first << std::endl;
-            
-            // Show the player current running games
-            std::string running_games = GetRunningGamesList();
-            client.Write(running_games);
         }
         else
         {
@@ -304,9 +294,11 @@ void HandleClient(Socket client)
             std::cout << "No available lobby to join. Please try creating a new one." << std::endl;
             return;
         }
+
+        if (!allocatedLobby)
+        {
+        }
     }
-
-
 
     if (allocatedLobby != nullptr && allocatedLobby->AddPlayer(std::move(client))){
         std::cout << "Player successfully added to lobbyID " << allocatedLobby->GetLobbyId() << std::endl;
@@ -453,24 +445,28 @@ void ReadServerInput(SocketServer &server)
     }
 }
 
-
-
-int main() {
-    try {
+int main()
+{
+    try
+    {
         SocketServer server(3000);
         std::cout << "Server started. Waiting for players..." << std::endl;
 
         // Start a thread to continuously read input from server terminal
         std::thread inputThread(ReadServerInput, std::ref(server));
 
-        while (!terminateServer) {
+        while (!terminateServer)
+        {
             Socket client = server.Accept();
             std::thread clientThread(HandleClient, std::move(client));
             clientThread.detach(); // Detach client thread to let it run independently
         }
 
-        inputThread.join();// Wait for the input thread to finish
-    } catch (const std::string &error) {
+        // Wait for the input thread to finish
+        inputThread.join();
+    }
+    catch (const std::string &error)
+    {
         std::cerr << "Error: " << error << std::endl;
         return 1;
     }
