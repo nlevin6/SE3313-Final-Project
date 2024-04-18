@@ -197,12 +197,13 @@ void HandleClient(Socket client) {
     lock.unlock();
 }
 
-void ReadServerInput() {
+void ReadServerInput(SocketServer &server) {
     std::string input;
     while (true) {
         std::getline(std::cin, input);
         if (input == "stop server") {
             std::cout << "Received request to stop server. Terminating..." << std::endl;
+            server.Shutdown();
             terminateServer = true;
             break;
         }
@@ -214,7 +215,7 @@ int main() {
         SocketServer server(3000);
         std::cout << "Server started. Waiting for players..." << std::endl;
 
-        std::thread inputThread(ReadServerInput);  // Start a thread to read server terminal input
+        std::thread inputThread(ReadServerInput, std::ref(server));  // Start a thread to read server terminal input
 
         while (!terminateServer) {
             Socket client = server.Accept();
@@ -223,10 +224,12 @@ int main() {
         }
 
         inputThread.join();  // Wait for the input thread to finish
+        
     } catch (const std::string& error) {
         std::cerr << "Error: " << error << std::endl;
         return 1;
     }
+    
     std::cout << "Server terminated gracefully." << std::endl;
     return 0;
 }
