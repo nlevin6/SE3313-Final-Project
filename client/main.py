@@ -15,9 +15,14 @@ def main():
         waiting_for_result = False  # Initialize the flag here
         valid_choices = ['rock', 'paper', 'scissors', 'done']  # Define valid choices
 
-        # Let the player choose to create or join a game
-        create_or_join = input("Do you want to create a new game or join an existing one? (create/join): ").lower()
-        client_socket.send(create_or_join.encode())
+        while True:
+            # Let the player choose to create or join a game
+            create_or_join = input("Do you want to create a new game or join an existing one? (create/join): ").lower()
+            if create_or_join in ['create', 'join']:
+                client_socket.send(create_or_join.encode())
+                break
+            else:
+                print("Invalid choice. Please enter 'create' or 'join'.")
 
         # Wait for server's response on creation/joining
         while True:
@@ -25,6 +30,8 @@ def main():
             print("Server response:", server_response)
             if "All players have joined" in server_response:
                 break
+            elif "No available lobby to join" in server_response:
+                return
 
         while True:
             if not waiting_for_result:  
@@ -32,12 +39,12 @@ def main():
                 
                 # Validate user input
                 if user_input in valid_choices:
-                    client_socket.send(user_input.encode())  # Send the choice to the server
-
                     if user_input == 'done':
                         client_socket.send(user_input.encode())
                         break
-                    waiting_for_result = True  
+                    else:
+                        client_socket.send(user_input.encode())
+                        waiting_for_result = True  
                 else:
                     print("Invalid choice. Please enter rock, paper, scissors, or 'done' to exit.")
                     continue  

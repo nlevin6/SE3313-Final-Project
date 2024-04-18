@@ -104,6 +104,10 @@ private:
             if (playerId - 1 < players.size()) {
                 players.erase(players.begin() + (playerId - 1));
                 std::cout << "Player " + std::to_string(playerId) + " has left the lobby." << std::endl;
+                const std::string leaveMessage = "Player " + std::to_string(playerId) + " has left the lobby.";
+                for (auto& player : players) {
+                    player.Write(leaveMessage);
+                }
             }
             playerChoices.erase(playerId);
             return;
@@ -123,9 +127,9 @@ private:
     void CheckAllPlayersChoices() {
         if (playerChoices.size() == players.size()) {
             std::string result = DetermineWinner();
-            std::string message = "The result is  ";
+            std::string message = "The result is ";
             message += result;
-            message += " Good game!";
+            message += ", Good game!";
             for (auto& player : players) {
                 player.Write(message);
                 std::cout << "Launching thread for player " << std::endl;
@@ -144,8 +148,12 @@ private:
                    (choice1 == "scissors" && choice2 == "paper") ||
                    (choice1 == "paper" && choice2 == "rock")) {
             return "Player 1 wins!";
-        } else {
+        } else if ((choice2 == "rock" && choice1 == "scissors") ||
+                   (choice2 == "scissors" && choice1 == "paper") ||
+                   (choice2 == "paper" && choice1 == "rock")) {
             return "Player 2 wins!";
+        } else {
+            return "Both players did not respond.";
         }
     }
 
@@ -190,7 +198,10 @@ void HandleClient(Socket client) {
             allocatedLobby = it->second.get();
             std::cout << "Joining existing lobby with ID " << it->first << std::endl;
         } else {
-            std::cout << "No available lobby to join. Please try creating a new one." << std::endl;
+            const std::string message = "No available lobby to join. Please try creating a new one.";
+            client.Write(message);
+            return;
+            // std::cout << "No available lobby to join. Please try creating a new one." << std::endl;
         }
     }
 
