@@ -20,82 +20,76 @@ private:
     int lobbyId;
     static int nextLobbyId;
 
-    
-    void HandlePlayer(Socket playerSocket, int playerId) {
-        while (running) {
+    void HandlePlayer(Socket playerSocket, int playerId)
+    {
+        while (running)
+        {
             ByteArray data;
             int bytesRead = playerSocket.Read(data);
             std::string choice(data.v.begin(), data.v.end());
-
-            if (choice == "done") {
-                RemovePlayer(playerId);
-                if (NoPlayersLeft()) {
-                    std::cout << "Lobby closed. No players left" << std::endl;
-                    running = false;
-                    if (lobbyThread.joinable()) {
-                        lobbyThread.join();
-                    }
-                }
-                return; // Exit this player's thread
-            }
-
-            
 
             ProcessPlayerChoice(playerId, choice);
         }
     }
 
-    
-    void CheckAllPlayersChoices() {
-        if (playerChoices.size() == players.size()) {
-            // All players have made their choices
+    void CheckAllPlayersChoices()
+    {
+        //if (playerChoices.size() == 2)
+        //{
+            std::cout << "1. playerChoices.size(): " << playerChoices.size() << std::endl;
             std::string result = DetermineWinner();
-            BroadcastMessage(result);
-            playerChoices.clear(); // Prepare for next round, assuming there will be a next round
-        }
+            playerChoices.clear();
+            std::cout << "2. playerChoices.size(): " << playerChoices.size() << std::endl;
+        //}
     }
 
-    bool IsValidChoice(const std::string& choice) {
+    bool IsValidChoice(const std::string &choice)
+    {
         return choice == "rock" || choice == "paper" || choice == "scissors";
     }
 
-    bool NoPlayersLeft() const {
+    bool NoPlayersLeft() const
+    {
         return players.empty();
     }
 
-    void RemovePlayer(int playerId) {
+    void ProcessPlayerChoice(int playerId, const std::string &choice)
+    {
         std::lock_guard<std::mutex> lock(playersMutex);
-        if (playerId - 1 < players.size()) {
-            players.erase(players.begin() + (playerId - 1));
-            std::cout << "Player " + std::to_string(playerId) + " has left the lobby." << std::endl;
-            BroadcastMessage("Player " + std::to_string(playerId) + " has left the lobby.");
-            
-        }
-        playerChoices.erase(playerId);
-    }
-
-    void ProcessPlayerChoice(int playerId, const std::string& choice) {
-        std::lock_guard<std::mutex> lock(playersMutex);
-        if (choice == "done") {
+        if (choice == "done")
+        {
             // Handle player wanting to leave
-            RemovePlayer(playerId);
+            if (playerId - 1 < players.size())
+            {
+                players.erase(players.begin() + (playerId - 1));
+                std::cout << "Player " + std::to_string(playerId) + " has left the lobby." << std::endl;
+            }
+            playerChoices.erase(playerId);
             return;
         }
 
-        if (IsValidChoice(choice)) {
+        if (IsValidChoice(choice))
+        {
             playerChoices[playerId] = choice;
             CheckAllPlayersChoices();
-        } else {
+        }
+        else
+        {
             SendDataToPlayer(playerId, "Invalid choice. Try again.");
         }
     }
 
-    void SendDataToPlayer(int playerId, const std::string& message) {
+    void SendDataToPlayer(int playerId, const std::string &message)
+    {
         std::lock_guard<std::mutex> lock(playersMutex);
-        if (playerId - 1 < players.size()) {
-            try {
+        if (playerId - 1 < players.size())
+        {
+            try
+            {
                 players[playerId - 1].Write(message);
-            } catch (const std::string& error) {
+            }
+            catch (const std::string &error)
+            {
                 std::cerr << "Error sending data to player: " << error << std::endl;
             }
         }
@@ -103,30 +97,39 @@ private:
 
     void lobbyThreadFunction()
     {
-        //start a thread for each player to handle their input
+        // start a thread for each player to handle their input
         int playerId = 1;
-        for (auto& player : players) {
-            std::thread([this, player, playerId]() { HandlePlayer(player, playerId); }).detach();
+        for (auto &player : players)
+        {
+            std::thread([this, player, playerId]()
+                        { HandlePlayer(player, playerId); })
+                .detach();
             playerId++;
         }
     }
 
-    std::string DetermineWinner() {
+    std::string DetermineWinner()
+    {
         std::string choice1 = playerChoices[1];
         std::string choice2 = playerChoices[2];
         if (choice1 == choice2)
         {
+            std::cout << "Draw" << std::endl;
             return "Draw";
         }
         else if ((choice1 == "rock" && choice2 == "scissors") ||
-                (choice1 == "scissors" && choice2 == "paper") ||
-                (choice1 == "paper" && choice2 == "rock"))
+                 (choice1 == "scissors" && choice2 == "paper") ||
+                 (choice1 == "paper" && choice2 == "rock"))
         {
-            return "Player 1 wins!";
+            std::cout << "Player 2 wins" << std::endl;
+            return "Player 2 wins!";
+            
         }
         else
         {
-            return "Player 2 wins!";
+            std::cout << "Player 1 wins" << std::endl;
+            return "Player 1 wins!";
+            
         }
     }
 
@@ -145,49 +148,43 @@ public:
     }
 
     // Add a player to the lobby
-    bool AddPlayer(Socket player) {
-    std::lock_guard<std::mutex> lock(playersMutex);
-    if (players.size() < 2) {
-        std::cout << "Adding a new player to the lobby." << std::endl;
-        players.push_back(std::move(player));
-        std::cout << "Attempting to broadcast message..." << std::endl;
+    bool AddPlayer(Socket player)
+    {
+        std::lock_guard<std::mutex> lock(playersMutex);
+        if (players.size() < 2)
+        {
+            std::cout << "Adding a new player to the lobby." << std::endl;
+            players.push_back(std::move(player));
+            std::cout << "Attempting to broadcast message..." << std::endl;
 
-        // Create a ByteArray from the string literal
-        Sync::ByteArray message("Welcome to the lobby!\n");
+            // Create a ByteArray from the string literal
+            Sync::ByteArray message("Welcome to the lobby!\n");
 
-        for (auto& player : players) {
-            std::cout << "Broadcasting to one player..." << std::endl; // Check if this gets printed
-            try {
-                player.Write(message); // Use the ByteArray object
-            } catch (const std::string& error) {
-                std::cerr << "Could not broadcast message to client: " << error << std::endl;
+            for (auto &player : players)
+            {
+                std::cout << "Broadcasting to one player..." << std::endl; // Check if this gets printed
+                try
+                {
+                    player.Write(message); // Use the ByteArray object
+                }
+                catch (const std::string &error)
+                {
+                    std::cerr << "Could not broadcast message to client: " << error << std::endl;
+                }
             }
+            return true;
         }
-        return true;
-    } else {
-        std::cerr << "Lobby is full. Cannot add more players." << std::endl;
-        return false;
+        else
+        {
+            std::cerr << "Lobby is full. Cannot add more players." << std::endl;
+            return false;
+        }
     }
-}
 
     // Get the current player count
     size_t PlayerCount() const
     {
         return players.size();
-    }
-
-    // Broadcast a message to all players in the lobby
-    void BroadcastMessage(const std::string& message)
-    {
-        std::lock_guard<std::mutex> lock(playersMutex);
-        // Send the message to all connected players
-        for (auto& player : players){
-            try {
-                player.Write(message);
-            } catch (const std::string& error){
-                std::cerr << "Could not broadcast message to client: " << error << std::endl;
-            }
-        }
     }
 
     int GetLobbyId() const
@@ -236,27 +233,6 @@ void BroadcastToAll(const ByteArray &data, int playerId)
     std::cout << "Broadcasted message from Player " << playerId << ": " << data.ToString() << std::endl;
 }
 
-/*
-std::string DetermineWinner()
-{
-    std::string choice1 = playerChoices[1];
-    std::string choice2 = playerChoices[2];
-    if (choice1 == choice2)
-    {
-        return "Draw";
-    }
-    else if ((choice1 == "rock" && choice2 == "scissors") ||
-             (choice1 == "scissors" && choice2 == "paper") ||
-             (choice1 == "paper" && choice2 == "rock"))
-    {
-        return "Player 1 wins!";
-    }
-    else
-    {
-        return "Player 2 wins!";
-    }
-}*/
-
 void SendDataToPlayer(const ByteArray &data, int playerId)
 {
     std::lock_guard<std::mutex> lock(clientMutex);
@@ -294,7 +270,7 @@ void HandleClient(Socket client)
     std::string choice(data.v.begin(), data.v.end());
 
     Lobby *allocatedLobby = nullptr;
-    std::unique_lock<std::mutex> lock(lobbiesMutex); 
+    std::unique_lock<std::mutex> lock(lobbiesMutex);
 
     if (choice == "create")
     {
@@ -306,9 +282,8 @@ void HandleClient(Socket client)
     else if (choice == "join")
     {
         // Attempt to find a lobby with space for more players
-        auto it = std::find_if(lobbies.begin(), lobbies.end(), [](const std::pair<const int, Lobby> &pair){ 
-            return pair.second.PlayerCount() < 2; 
-        });
+        auto it = std::find_if(lobbies.begin(), lobbies.end(), [](const std::pair<const int, Lobby> &pair)
+                               { return pair.second.PlayerCount() < 2; });
 
         if (it != lobbies.end())
         {
@@ -323,21 +298,21 @@ void HandleClient(Socket client)
         }
     }
 
-    if (allocatedLobby != nullptr && allocatedLobby->AddPlayer(std::move(client))){
+    if (allocatedLobby != nullptr && allocatedLobby->AddPlayer(std::move(client)))
+    {
         std::cout << "Player successfully added to lobbyID " << allocatedLobby->GetLobbyId() << std::endl;
         // Send confirmation to client
     }
-    else {
+    else
+    {
         std::cerr << "Player could not be added to the lobby." << std::endl;
         // Send error to the client
     }
 
     lock.unlock();
 
-
     // Below this is the old handle client, before the Lobby
     // These would normally be handled inside Lobby's while loop per Lobby instance
-
 }
 
 // Continuously read input from server terminal

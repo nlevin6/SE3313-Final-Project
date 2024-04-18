@@ -36,7 +36,7 @@ def main():
 
             # Block and wait for the server's response
             server_response = client_socket.recv(1024).decode()
-            print("Server response:", server_response)
+            #print("Server response:", server_response)
 
             # Reset the waiting flag based on the server's response
             if "Waiting" not in server_response:
