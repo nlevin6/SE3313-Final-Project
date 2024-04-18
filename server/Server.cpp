@@ -18,7 +18,7 @@ private:
     std::unordered_map<int, std::string> playerChoices; // Tracks player choices in the game
     std::thread lobbyThread;
     int lobbyId;
-    static int nextLobbyId;
+    static std::atomic<int> nextLobbyId;
 
     void HandlePlayer(Socket playerSocket, int playerId)
     {
@@ -189,7 +189,7 @@ public:
 
     static int GetNextLobbyId()
     {
-        return nextLobbyId++;
+        return nextLobbyId.fetch_add(1, std::memory_order_relaxed);
     }
 
     Lobby() : running(true), lobbyId(GetNextLobbyId())
@@ -199,7 +199,7 @@ public:
     }
 };
 
-int Lobby::nextLobbyId = 1; // Initialize static member
+std::atomic<int> Lobby::nextLobbyId(1); // Initialize static member
 
 std::atomic<bool> terminateServer(false);           // Global atomic flag to control server termination
 std::vector<std::thread> clientThreads;             // Vector to store client threads
@@ -208,7 +208,7 @@ std::vector<Socket> connectedClients;               // Vector to store connected
 std::mutex clientMutex;                             // Mutex to protect access to connectedClients vector
 std::unordered_map<int, int> messageCount;          // Map to store message count for each player
 std::unordered_map<int, std::string> playerChoices; // Store player choices
-std::unordered_map<int, Lobby> lobbies;             // Lobbies in operation
+std::unordered_map<int, std::unique_ptr<Lobby>> lobbies;             // Lobbies in operation
 std::mutex lobbiesMutex;                            // Protect access to the lobbies map
 
 void BroadcastToAll(const ByteArray &data, int playerId)
@@ -269,21 +269,23 @@ void HandleClient(Socket client)
 
     if (choice == "create")
     {
-        int newLobbyId = Lobby::GetNextLobbyId();
-        auto &lobby = lobbies[newLobbyId];
-        allocatedLobby = &lobby;
+        auto newLobby = std::unique_ptr<Lobby>(new Lobby);
+        int newLobbyId = newLobby->GetLobbyId();
+        lobbies[newLobbyId] = std::move(newLobby); 
+        allocatedLobby = lobbies[newLobbyId].get();
         std::cout << "New Lobby created with ID " << newLobbyId << std::endl;
     }
     else if (choice == "join")
     {
         // Attempt to find a lobby with space for more players
-        auto it = std::find_if(lobbies.begin(), lobbies.end(), [](const std::pair<const int, Lobby> &pair)
-                               { return pair.second.PlayerCount() < 2; });
+        auto it = std::find_if(lobbies.begin(), lobbies.end(), [](const std::pair<const int, std::unique_ptr<Lobby>>& pair) { 
+            return pair.second->PlayerCount() < 2; 
+        });
 
         if (it != lobbies.end())
         {
 
-            allocatedLobby = &(it->second);
+            allocatedLobby = it->second.get();
             std::cout << "Joining existing lobby with ID " << it->first << std::endl;
         }
         else
