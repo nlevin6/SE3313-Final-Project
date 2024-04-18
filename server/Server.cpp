@@ -73,13 +73,15 @@ private:
         std::cout << "Starting thread function with " << players.size() << " players." << std::endl;
         int playerId = 1;
         for (auto& player : players) {
+            const std::string message = "All players have joined";
+            player.Write(message);
             std::cout << "Launching thread for player " << playerId << std::endl;
             std::thread([this, &player, playerId]() {
                 HandlePlayer(player, playerId);
             }).detach();
             playerId++;
         }
-        std::cout << "All player threads launched." << std::endl;
+        std::cout << "\nAll player threads launched." << std::endl;
     }
 
     void HandlePlayer(Socket playerSocket, int playerId) {
@@ -121,7 +123,14 @@ private:
     void CheckAllPlayersChoices() {
         if (playerChoices.size() == players.size()) {
             std::string result = DetermineWinner();
-            std::cout << result << std::endl; // Assuming result processing/displaying is handled here
+            std::string message = "The result is  ";
+            message += result;
+            message += " Good game!";
+            for (auto& player : players) {
+                player.Write(message);
+                std::cout << "Launching thread for player " << std::endl;
+            }
+            std::cout << result << std::endl;
             playerChoices.clear();
         }
     }
@@ -187,8 +196,12 @@ void HandleClient(Socket client) {
 
     if (allocatedLobby && allocatedLobby->AddPlayer(std::move(client))) {
         std::cout << "Player successfully added to lobbyID " << allocatedLobby->GetLobbyId() << std::endl;
-        if (allocatedLobby->PlayerCount() == 2) {  // Assuming 2 is the required number of players
+        if (allocatedLobby->PlayerCount() == 2) {
             allocatedLobby->Start();
+        }
+        else {
+            const std::string message = "Waiting for one more player";
+            client.Write(message);
         }
     } else {
         std::cerr << "Player could not be added to the lobby." << std::endl;

@@ -19,6 +19,13 @@ def main():
         create_or_join = input("Do you want to create a new game or join an existing one? (create/join): ").lower()
         client_socket.send(create_or_join.encode())
 
+        # Wait for server's response on creation/joining
+        while True:
+            server_response = client_socket.recv(1024).decode()
+            print("Server response:", server_response)
+            if "All players have joined" in server_response:
+                break
+
         while True:
             if not waiting_for_result:  
                 user_input = input("Enter rock, paper, scissors to play or 'done' to exit: ").lower()
@@ -28,19 +35,19 @@ def main():
                     client_socket.send(user_input.encode())  # Send the choice to the server
 
                     if user_input == 'done':
+                        client_socket.send(user_input.encode())
                         break
                     waiting_for_result = True  
                 else:
                     print("Invalid choice. Please enter rock, paper, scissors, or 'done' to exit.")
                     continue  
 
-            # Block and wait for the server's response
+            # Block and wait for the other player's response
+            print("Waiting for your opponent")
             server_response = client_socket.recv(1024).decode()
             print("Server response:", server_response)
 
-            # Reset the waiting flag based on the server's response
-            if "Waiting" not in server_response:
-                waiting_for_result = False  
+            waiting_for_result = False  
 
     except Exception as e:
         print(f"An error occurred: {e}")
