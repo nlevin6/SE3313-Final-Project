@@ -34,13 +34,10 @@ private:
 
     void CheckAllPlayersChoices()
     {
-        //if (playerChoices.size() == 2)
-        //{
-            std::cout << "1. playerChoices.size(): " << playerChoices.size() << std::endl;
-            std::string result = DetermineWinner();
-            playerChoices.clear();
-            std::cout << "2. playerChoices.size(): " << playerChoices.size() << std::endl;
-        //}
+        std::cout << "1. playerChoices.size(): " << playerChoices.size() << std::endl;
+        std::string result = DetermineWinner();
+        //playerChoices.clear();
+        //std::cout << "2. playerChoices.size(): " << playerChoices.size() << std::endl;
     }
 
     bool IsValidChoice(const std::string &choice)
@@ -123,13 +120,11 @@ private:
         {
             std::cout << "Player 2 wins" << std::endl;
             return "Player 2 wins!";
-            
         }
         else
         {
             std::cout << "Player 1 wins" << std::endl;
             return "Player 1 wins!";
-            
         }
     }
 
